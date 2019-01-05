@@ -9,14 +9,14 @@ import (
 	"strconv"
 )
 
-var matchGroup = regexp.MustCompile(`\$\d+`)
+var matchGroup = regexp.MustCompile(`\$(\$|\d+)`)
 
 func main() {
 	if len(os.Args) < 3 {
 		help()
 	}
 	pattern := os.Args[1]
-	format := []byte(os.Args[2])
+	format := os.Args[2]
 	if len(os.Args) > 3 {
 		pattern = "(?" + os.Args[3] + ")" + pattern
 	}
@@ -31,13 +31,16 @@ func main() {
 
 	input, _ := ioutil.ReadAll(os.Stdin)
 	for _, match := range regex.FindAllSubmatch(input, -1) {
-		w.Write(
-			matchGroup.ReplaceAllFunc(format, func(s []byte) []byte {
-				idx, _ := strconv.Atoi(string(s[1:])) // ignore leading $
-				if idx >= len(match) {
-					return []byte{}
+		w.WriteString(
+			matchGroup.ReplaceAllStringFunc(format, func(s string) string {
+				if s == "$$" {
+					return "$"
 				}
-				return match[idx]
+				idx, _ := strconv.Atoi(s[1:]) // ignore leading $
+				if idx >= len(match) {
+					return ""
+				}
+				return string(match[idx])
 			}))
 		w.WriteString("\n")
 	}
