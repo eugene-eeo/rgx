@@ -1,0 +1,14 @@
+
+    $ rgx_
+
+    match and replace input against a regexp:
+
+        $ rgx <pattern> <format> [<flags>]
+        $ cat input.txt
+        1) milk
+        2) eggs
+        3) flour
+        $ cat input.txt | rgx '^\d\) (\w+)$' 'I want $1' 'm'
+        I want milk
+        I want eggs
+        I want flour
