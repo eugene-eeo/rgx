@@ -91,15 +91,13 @@ func main() {
 		if err == io.EOF {
 			break
 		}
-		// if we don't have any matches then just assume that
-		// we have matched half the buffer
-		last_index := max(min((s+n)/8, 256), 1)
+		// if we don't have any matches then
+		s := max(min((s+n)/8, 256), 1)
 		if len(indices) > 0 {
-			last_index = indices[len(indices)-1][1]
+			s = s + n - indices[len(indices)-1][1]
 		}
 		// we may need to copy some unmatched characters
 		// over to the new buffer
-		s = s + n - last_index
 		if s > 0 {
 			copy(b, b[s:])
 		}
