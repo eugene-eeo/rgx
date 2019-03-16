@@ -1,7 +1,7 @@
 
     $ rgx_
 
-    match and replace input against a regexp:
+    Match and replace input against a regexp:
 
         $ rgx <pattern> <format> [<flags>]
         $ cat input.txt
@@ -12,3 +12,26 @@
         I want milk
         I want eggs
         I want flour
+
+    Buffered matching algorithm
+
+      For large inputs, we don't want to hold the entire input in memory.
+      Solution: best effort matching:
+      Idea: if we pick a big enough buffer size we can approximate reading
+            the entire input into memory and running the regex.
+
+        1. allocate a fixed size buffer, e.g. N = 1024 bytes
+        2. set s = 0. s = number of unmatched characters at the
+           end of the buffer.
+        3. repeat until EOF:
+
+            1. try to read N-s bytes into the buffer into positions
+               s, s+1, s+2, ... in the buffer. Buffer now has n+s 'real'
+               bytes (n+s <= N should we reach EOF).
+
+            2. find matches in buffer[:s+n]
+               - no match   => s = min(256, max(n / 8, 1))
+               - >= 1 match => s = n + s - final match index
+
+            3. copy the last s characters in the read chunk to the first
+               s characters

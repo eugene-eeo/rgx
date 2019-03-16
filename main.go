@@ -3,51 +3,111 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"regexp"
 	"strconv"
 )
 
+const BUFLEN = 1024 * 256
+
 var matchGroup = regexp.MustCompile(`\$(\$|\d+)`)
+
+func formatMatch(buf []byte, indices []int, format []byte, dst io.Writer) {
+	length := len(indices) / 2
+	dst.Write(
+		matchGroup.ReplaceAllFunc(format, func(b []byte) []byte {
+			s := string(b)
+			if s == "$$" {
+				return []byte("$")
+			}
+			idx, _ := strconv.Atoi(s[1:]) // ignore leading $
+			if idx >= length {
+				return []byte{}
+			}
+			i := idx * 2
+			return buf[indices[i]:indices[i+1]]
+		}))
+	dst.Write([]byte("\n"))
+}
+
+func max(a, b int) int {
+	if a < b {
+		return b
+	}
+	return a
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
 
 func main() {
 	if len(os.Args) < 3 {
 		help()
 	}
-	pattern := os.Args[1]
-	format := os.Args[2]
+	flags := "ms"
 	if len(os.Args) > 3 {
-		pattern = "(?" + os.Args[3] + ")" + pattern
+		flags = os.Args[3]
 	}
+	// buffer size
+	buflen := BUFLEN
+	if len(os.Args) > 4 {
+		bl, err := strconv.Atoi(os.Args[4])
+		if err != nil {
+			die("Cannot parse buffer length")
+		}
+		buflen = bl
+		if buflen <= 1 {
+			buflen = 1024
+		}
+	}
+	pattern := "(?" + flags + ")" + os.Args[1]
+	format := []byte(os.Args[2])
 
 	regex, err := regexp.Compile(pattern)
 	if err != nil {
 		die("Cannot compile regex:", err)
 	}
 
+	r := bufio.NewReader(os.Stdin)
 	w := bufio.NewWriter(os.Stdout)
+	b := make([]byte, buflen)
+	s := 0
 	defer w.Flush()
 
-	input, _ := ioutil.ReadAll(os.Stdin)
-	for _, match := range regex.FindAllSubmatch(input, -1) {
-		w.WriteString(
-			matchGroup.ReplaceAllStringFunc(format, func(s string) string {
-				if s == "$$" {
-					return "$"
-				}
-				idx, _ := strconv.Atoi(s[1:]) // ignore leading $
-				if idx >= len(match) {
-					return ""
-				}
-				return string(match[idx])
-			}))
-		w.WriteString("\n")
+	for {
+		n, err := r.Read(b[s:])
+		if err != nil && err != io.EOF {
+			break
+		}
+		indices := regex.FindAllSubmatchIndex(b[:s+n], -1)
+		for _, idxs := range indices {
+			formatMatch(b, idxs, format, w)
+		}
+		if err == io.EOF {
+			break
+		}
+		// if we don't have any matches then just assume that
+		// we have matched half the buffer
+		last_index := max(min((s+n)/8, 256), 1)
+		if len(indices) > 0 {
+			last_index = indices[len(indices)-1][1]
+		}
+		// we may need to copy some unmatched characters
+		// over to the new buffer
+		s = s + n - last_index
+		if s > 0 {
+			copy(b, b[s:])
+		}
 	}
 }
 
 func help() {
-	os.Stdout.WriteString("Usage: rgx <pattern> <format> [flags]\n")
+	os.Stdout.WriteString("Usage: rgx <pattern> <format> [<flags>]\n")
 	os.Exit(1)
 }
 
