@@ -91,10 +91,12 @@ func main() {
 		if err == io.EOF {
 			break
 		}
-		// if we don't have any matches then
-		s := max(min((s+n)/8, 256), 1)
 		if len(indices) > 0 {
 			s = s + n - indices[len(indices)-1][1]
+		} else {
+			// if we don't have any matches then assume that
+			// we can skip by 256 or max((s+n)/8, 1)
+			s = min(max((s+n)/8, 1), 256)
 		}
 		// we may need to copy some unmatched characters
 		// over to the new buffer
