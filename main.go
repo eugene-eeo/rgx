@@ -15,7 +15,7 @@ var matchGroup = regexp.MustCompile(`\$(\$|\d+)`)
 
 func formatMatch(buf []byte, indices []int, format []byte, dst io.Writer) {
 	length := len(indices) / 2
-	dst.Write(
+	_, _ = dst.Write(
 		matchGroup.ReplaceAllFunc(format, func(b []byte) []byte {
 			s := string(b)
 			if s == "$$" {
@@ -28,7 +28,7 @@ func formatMatch(buf []byte, indices []int, format []byte, dst io.Writer) {
 			i := idx * 2
 			return buf[indices[i]:indices[i+1]]
 		}))
-	dst.Write([]byte("\n"))
+	_, _ = dst.Write([]byte("\n"))
 }
 
 func max(a, b int) int {
